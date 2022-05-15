@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+<style>
+.b-example-divider {
+  height: 3rem;
+  background-color: rgba(0, 0, 0, .1);
+  border: solid rgba(0, 0, 0, .15);
+  border-width: 1px 0;
+  box-shadow: inset 0 .5em 1.5em rgba(0, 0, 0, .1), inset 0 .125em .5em rgba(0, 0, 0, .15);
+}
+
+@media (min-width: 992px) {
+  .rounded-lg-3 { border-radius: .3rem; }
+}
+
+</style>
+</head>
+  <body>
+    <div id="app">
+        <div class="px-1 py-1 my-1 text-center">
+            <h1 class="display-5 fw-bold"> Benford's Assertion Validator</h1>
+            <div class="col-lg-6 mx-auto">
+              <p class="lead mb-4">Please choose a CSV or TSV file to determine if the data fits the Benford model.</p>
+              <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                <input  class="form-control" id="csv" type="file" @change="processFile">
+            </div>
+            </div>
+        </div>
+        <div v-if="errorMessage"  class="text-center">
+          <div class="col-lg-6 mx-auto">
+              <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                [[errorMessage]]
+              </div>
+          </div>
+        </div>
+        <div v-if="fileData.length" class="text-center">
+            <div class="col-lg-6 mx-auto">
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                  Please choose which column to analyze.
+                </div>
+                <button @click="analyze" v-if="columnToUse" > Analyze </button>
+                <button @click="reset" v-if="columnToUse && chartImage" > Clear Chart </button>
+            </div>
+        </div>
+        <div class="text-center">
+            <div class="mx-auto">
+              <img style="width:100%;height:100%;" v-if="chartImage" v-bind:src="chartImage" />
+            </div>
+        </div>
+       
+        <div class="text-center">
+            <div class="col-lg-6 mx-auto">
+              <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                <table class="table" id="data-table">
+                  <tr>
+                    <td v-for="(record,index) in dataToShow[0]">
+                      <input @change="columnChanged" type="radio" name="column" v-bind:value="index">
+                    </td>
+                  </tr>
+                  <tr v-for="record in dataToShow">
+                    <td v-for="cell in record">
+                      [[ cell ]]
+                    </td>
+                  </tr>
+                </table>
+            </div>
+            </div>
+          </div>
+      </div>
+
+    <script src="https://unpkg.com/vue@3"></script>
+    <script>
+      const { createApp } = Vue
+
+      createApp({
+        delimiters: ['[[', ']]'],
+        computed: {
+          athing() {
+            
+          }
+        },
+        methods: {
+          reset: function(){
+            this.chartImage = null;
+          },
+          columnChanged: function(event) {
+            this.columnToUse = event.target.value
+          },
+          analyze: async function(){
+            let columnData = this.fileData.map((value) => Number(value[this.columnToUse])); 
+            columnData = columnData.filter((value) => !isNaN(value) && value != null && value != undefined); 
+            const response = await fetch('/getBenfordAnalysis', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(columnData)
+            });
+            const image = await response.text();
+            this.chartImage = '/static/' + image + '.png';
+          },
+          processFile: function() {
+            this.chartImage = null;
+            this.errorMessage = null;
+            data = [];
+            var reader = new FileReader();
+            reader.onload =  () => {
+              var results = Papa.parse(reader.result);
+              if(results.errors.length > 0){
+                this.fileData = [];
+                this.dataToShow = [];
+                this.errorMessage = 'Please choose a CSV or TSV file.';
+                return
+              }
+              this.fileData = results.data;
+              data = results.data.slice(0,100);
+              this.dataToShow = results.data.slice(0,100);
+            };
+            reader.readAsBinaryString(event.target.files[0]);
+
+          }
+        },
+        data() {
+          return {
+            chartImage:null,
+            columnToUse: null,
+            dataToShow:[],
+            fileData:[],
+            errorMessage:null
+          }
+        }
+      }).mount('#app')
+    </script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  </body>
+</html>
